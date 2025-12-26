@@ -1,5 +1,5 @@
 {
-  "name": "osamaelnagar/laravel-cart",
+  "name": "osamaelnagar/cart",
   "description": "A standalone cart package for Laravel.",
   "type": "library",
   "license": "MIT",

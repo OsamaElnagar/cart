@@ -16,7 +16,7 @@ A flexible, polymorphic cart system for Laravel applications. This package allow
 You can install the package via composer:
 
 ```bash
-composer require osamaelnagar/laravel-cart
+composer require osamaelnagar/cart
 ```
 
 ## Setup
