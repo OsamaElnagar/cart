@@ -18,5 +18,9 @@ interface CartRepositoryInterface
 
     public function total(): float;
 
+    public function itemsCount(): int;
+
+    public function totalQuantity(): int;
+
     public function clearAbandoned(int $hours);
 }

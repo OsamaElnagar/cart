@@ -12,6 +12,8 @@ use OsamaElnagar\Cart\Interfaces\CartRepositoryInterface;
  * @method static void delete($id)
  * @method static void clean()
  * @method static float total()
+ * @method static int itemsCount()
+ * @method static int totalQuantity()
  * @method static void clearAbandoned(int $hours)
  *
  * @see \OsamaElnagar\Cart\Repositories\CartRepository

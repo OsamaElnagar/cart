@@ -3,6 +3,7 @@
 namespace OsamaElnagar\Cart\Repositories;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Traits\Macroable;
 use OsamaElnagar\Cart\Events\CartCleared;
@@ -21,6 +22,26 @@ class CartRepository implements CartRepositoryInterface
 
     public function __construct()
     {
+        $this->items = collect();
+    }
+
+    /**
+     * Get the cache key for the current session.
+     */
+    protected function getCacheKey(): string
+    {
+        $identifier = auth('web')->id() ?? Cart::getCookieID();
+        return config('cart.cache.key_prefix', 'cart_cache_') . $identifier;
+    }
+
+    /**
+     * Clear the cart cache.
+     */
+    protected function refreshCache(): void
+    {
+        if (config('cart.cache.enabled', true)) {
+            Cache::forget($this->getCacheKey());
+        }
         $this->items = collect();
     }
 
@@ -54,7 +75,7 @@ class CartRepository implements CartRepositoryInterface
                 'cartable_type' => $cartable->getMorphClass(),
                 'quantity' => $quantity,
             ]);
-            $this->items = collect();
+            $this->refreshCache();
 
             ItemAdded::dispatch($cart, $cartable);
 
@@ -63,7 +84,7 @@ class CartRepository implements CartRepositoryInterface
 
         $this->log('Incrementing existing cart item quantity', ['item_id' => $item->id]);
         $item->increment('quantity', $quantity);
-        $this->items = collect();
+        $this->refreshCache();
 
         ItemAdded::dispatch($item, $cartable);
 
@@ -72,19 +93,37 @@ class CartRepository implements CartRepositoryInterface
 
     public function get(?string $calledBy = null): Collection
     {
+        // Return local property if already populated in this request lifecycle to avoid repeated calls
+        if ($this->items->count()) {
+            return $this->items;
+        }
+
         $this->log('Fetching cart items', ['called_by' => $calledBy]);
 
-        if (! $this->items || ! $this->items->count()) {
-            $this->items = Cart::with('cartable')->get();
-
-            $this->log('Fetched from DB', ['count' => $this->items->count()]);
-
-            $this->items->each(function ($item) {
-                $item->id = (string) $item->id;
-            });
+        if (config('cart.cache.enabled', true)) {
+            $this->items = Cache::remember(
+                $this->getCacheKey(),
+                now()->addMinutes(config('cart.cache.lifetime', 60)),
+                fn () => $this->fetchFromDatabase()
+            );
+        } else {
+            $this->items = $this->fetchFromDatabase();
         }
 
         return $this->items;
+    }
+
+    protected function fetchFromDatabase(): Collection
+    {
+        $items = Cart::with('cartable')->get();
+        $this->log('Fetched from DB', ['count' => $items->count()]);
+        
+        // Cast UUIDs to strings for consistent frontend usage
+        $items->each(function ($item) {
+            $item->id = (string) $item->id;
+        });
+
+        return $items;
     }
 
     public function update($id, int $quantity): void
@@ -103,7 +142,7 @@ class CartRepository implements CartRepositoryInterface
             'quantity' => $quantity,
         ]);
 
-        $this->items = collect();
+        $this->refreshCache();
 
         ItemUpdated::dispatch($item, $quantity);
     }
@@ -114,7 +153,7 @@ class CartRepository implements CartRepositoryInterface
         $this->log('Cleaning cart', ['cookie_id' => $cookieId]);
 
         Cart::where('cookie_id', $cookieId)->delete();
-        $this->items = collect();
+        $this->refreshCache();
 
         CartCleared::dispatch($cookieId);
     }
@@ -133,8 +172,7 @@ class CartRepository implements CartRepositoryInterface
         }
 
         $item->delete();
-
-        $this->items = collect();
+        $this->refreshCache();
 
         ItemDeleted::dispatch($id);
     }
@@ -142,9 +180,18 @@ class CartRepository implements CartRepositoryInterface
     public function total(): float
     {
         return $this->get()->sum(function ($item) {
-            // Assuming the cartable model has a 'price' attribute
-            return $item?->quantity * ($item?->cartable?->price ?? 0);
+            return $item->quantity * ($item->cartable->price ?? 0);
         });
+    }
+
+    public function itemsCount(): int
+    {
+        return $this->get()->count();
+    }
+
+    public function totalQuantity(): int
+    {
+        return $this->get()->sum('quantity');
     }
 
     public function clearAbandoned(int $hours): void

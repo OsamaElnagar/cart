@@ -23,4 +23,13 @@ return [
         'name' => 'cart_id',
         'lifetime' => 30 * 24 * 60, // 30 days
     ],
+
+    /*
+     * Cache settings.
+     */
+    'cache' => [
+        'enabled' => env('CART_CACHE_ENABLED', true),
+        'key_prefix' => 'cart_cache_',
+        'lifetime' => 60, // Minutes
+    ],
 ];
