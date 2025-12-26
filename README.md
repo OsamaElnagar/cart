@@ -13,24 +13,10 @@ A flexible, polymorphic cart system for Laravel applications. This package allow
 
 ## Installation
 
-Since this package is currently in development, you can add it to your `composer.json` using a local path:
-
-```json
-"repositories": [
-    {
-        "type": "path",
-        "url": "packages/osamaelnagar/cart"
-    }
-],
-"require": {
-    "osamaelnagar/cart": "@dev"
-}
-```
-
-Then run:
+You can install the package via composer:
 
 ```bash
-composer update osamaelnagar/cart
+composer require osamaelnagar/laravel-cart
 ```
 
 ## Setup
